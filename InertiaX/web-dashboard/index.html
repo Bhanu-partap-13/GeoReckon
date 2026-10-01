@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DRISHTI — Intelligent Dead Reckoning | SIH 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body class="dark-theme">
+  <div id="app" class="dashboard-container">
+    
+    <!-- Top Global Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="brand-title">
+          <span class="brand-logo">DRISHTI</span>
+          <span class="brand-divider">|</span>
+          <span class="brand-sub">INTELLIGENT DEAD RECKONING</span>
+        </div>
+        <div class="isro-badge">SIH26168 — ISRO</div>
+      </div>
+
+      <div class="header-center">
+        <div class="source-selector-group">
+          <label for="dataSourceSelect">DATA SOURCE:</label>
+          <select id="dataSourceSelect" class="source-select">
+            <option value="SIMULATION">SYNTHETIC SIMULATOR (SEED: 26168)</option>
+            <option value="LIVE_FIELD_UNIT">FIELD UNIT — SMARTPHONE WEBSOCKET</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="telemetry-pill">
+          <span class="pill-label">SIM TIME</span>
+          <span id="headerClock" class="pill-value">T+00:00.0</span>
+        </div>
+        <div class="telemetry-pill">
+          <span class="pill-label">RATE</span>
+          <span class="pill-value text-cyan">100.0 Hz</span>
+        </div>
+        <div class="telemetry-pill" id="fieldLinkPill">
+          <span class="pill-dot connected"></span>
+          <span class="pill-label">FIELD LINK:</span>
+          <span id="fieldLinkText" class="pill-value text-green">ONLINE</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace Grid -->
+    <main class="main-layout">
+      
+      <!-- Left Panel: State, Ablation & Covariance -->
+      <aside class="panel left-panel">
+        
+        <!-- Filter State Machine Card -->
+        <section class="card mode-card">
+          <div class="card-header-compact">
+            <span class="badge-mode">MODE [1]</span>
+            <span class="card-title-sub">FILTER STATE MACHINE</span>
+          </div>
+          <div id="filterStateBanner" class="filter-state-large state-dr-active">
+            <span class="pulse-indicator"></span>
+            <span id="filterStateText">GNSS + DR</span>
+          </div>
+        </section>
+
+        <!-- Ablation Switchboard ("Why does DRISHTI work?") -->
+        <section class="card ablation-card">
+          <div class="card-header">
+            <h3>WHY DOES DRISHTI WORK?</h3>
+            <span class="hint-badge">ABLATION STUDY</span>
+          </div>
+          <div class="toggles-list">
+            <div class="toggle-row">
+              <span class="toggle-name">
+                <span class="dot-cyan"></span> AI SPEED
+              </span>
+              <button id="toggleAiSpeed" class="toggle-btn active" data-component="aiSpeed">ON</button>
+            </div>
+            <div class="toggle-row">
+              <span class="toggle-name">
+                <span class="dot-cyan"></span> NHC (LATERAL VELOCITY = 0)
+              </span>
+              <button id="toggleNhc" class="toggle-btn active" data-component="nhc">ON</button>
+            </div>
+            <div class="toggle-row">
+              <span class="toggle-name">
+                <span class="dot-cyan"></span> MAP (ROAD CONSTRAINT)
+              </span>
+              <button id="toggleMap" class="toggle-btn active" data-component="map">ON</button>
+            </div>
+          </div>
+
+          <div class="ablation-comparison-box">
+            <div class="ablation-comparison-header">DRISHTI VS BASELINE ERROR</div>
+            <div class="ablation-values">
+              <span id="drishtiErrVal" class="text-cyan text-bold">0.8 m</span>
+              <span class="slash">/</span>
+              <span id="baselineErrVal" class="text-red text-bold">412.6 m</span>
+            </div>
+            <div class="ablation-caption">
+              AI Speed trains forward velocity. Disabling components dynamically degrades estimator trajectory in real-time.
+            </div>
+          </div>
+        </section>
+
+        <!-- Covariance & Uncertainty Decomposition -->
+        <section class="card uncertainty-card">
+          <div class="card-header">
+            <h3>UNCERTAINTY</h3>
+            <span class="sub-metric" id="overallUncertainty">± 1.80 m</span>
+          </div>
+
+          <div class="meter-group">
+            <div class="meter-label-row">
+              <span>ALONG-TRACK</span>
+              <span id="alongVal" class="meter-num">1.57 m</span>
+            </div>
+            <div class="meter-bar-track">
+              <div id="alongBar" class="meter-bar-fill fill-amber" style="width: 35%;"></div>
+            </div>
+          </div>
+
+          <div class="meter-group">
+            <div class="meter-label-row">
+              <span>CROSS-TRACK</span>
+              <span id="crossVal" class="meter-num">1.41 m</span>
+            </div>
+            <div class="meter-bar-track">
+              <div id="crossBar" class="meter-bar-fill fill-cyan" style="width: 28%;"></div>
+            </div>
+          </div>
+
+          <div class="meter-group">
+            <div class="meter-label-row">
+              <span>HEADING</span>
+              <span id="headingUncertVal" class="meter-num">1.15°</span>
+            </div>
+            <div class="meter-bar-track">
+              <div id="headingBar" class="meter-bar-fill fill-blue" style="width: 20%;"></div>
+            </div>
+          </div>
+
+          <div class="axis-ratio-row">
+            <span class="ratio-label">AXIS RATIO (ALONG : CROSS)</span>
+            <span id="axisRatioVal" class="ratio-value">1.12 : 1</span>
+          </div>
+          <div class="uncertainty-insight">
+            Derived from Error-State Kalman Filter covariance. Cross-track collapses on road map-match; along-track continues to grow naturally.
+          </div>
+        </section>
+
+        <!-- Road Map Matching Hypothesis -->
+        <section class="card map-hypo-card">
+          <div class="card-header-compact">
+            <span class="card-title-sub">MAP HYPOTHESIS</span>
+            <span id="mapConfidenceVal" class="text-cyan text-mono">82.4%</span>
+          </div>
+          <div class="hypo-road-name">PRAGATI MAIDAN EXPRESSWAY</div>
+          <div class="progress-track">
+            <div id="mapHypoBar" class="progress-fill fill-cyan" style="width: 82%;"></div>
+          </div>
+        </section>
+
+      </aside>
+
+      <!-- Center 3D Isometric Viewport -->
+      <section class="center-viewport">
+        
+        <!-- Canvas Container with 3D City & Navigation Corridor -->
+        <div class="canvas-wrapper">
+          <canvas id="navCanvas"></canvas>
+
+          <!-- Top Overlay: Outage Timeline Bar -->
+          <div class="timeline-hud-bar">
+            <div class="timeline-hud-phase phase-gnss" id="phaseNormal">
+              <span class="phase-dot"></span> GNSS LOCKED
+            </div>
+            <div class="timeline-arrow">➔</div>
+            <div class="timeline-hud-phase phase-blackout" id="phaseBlackout">
+              <span class="phase-dot"></span> BLACKOUT (TUNNEL)
+            </div>
+            <div class="timeline-arrow">➔</div>
+            <div class="timeline-hud-phase phase-pothole" id="phasePothole">
+              <span class="phase-dot"></span> ROAD SHOCK / POTHOLE
+            </div>
+            <div class="timeline-arrow">➔</div>
+            <div class="timeline-hud-phase phase-spoof" id="phaseSpoof">
+              <span class="phase-dot"></span> MULTIPATH / SPOOF
+            </div>
+            <div class="timeline-arrow">➔</div>
+            <div class="timeline-hud-phase phase-recovery" id="phaseRecovery">
+              <span class="phase-dot"></span> SOFT HANDOVER
+            </div>
+          </div>
+
+          <!-- Floating GNSS Denied HUD Banner -->
+          <div id="gnssDeniedOverlay" class="gnss-denied-badge hidden">
+            <div class="denied-title">
+              <span class="alert-icon">⚠️</span> GNSS DENIED
+            </div>
+            <div class="denied-stats">
+              <span id="deniedTimer">00:07.8</span>
+              <span class="stat-divider">|</span>
+              <span id="deniedDistance">DISTANCE 120 m</span>
+            </div>
+          </div>
+
+          <!-- Floating Naive INS Failure Alert Callout -->
+          <div id="naiveInsAlert" class="naive-ins-alert hidden">
+            <span class="alert-tag">BASELINE FAILURE</span>
+            <span id="naiveDistanceText">NAIVE INS - OFF-MAP · 397 m</span>
+          </div>
+
+          <!-- Trajectory Legend HUD -->
+          <div class="map-legend-hud">
+            <div class="legend-item">
+              <span class="legend-line line-green"></span>
+              <span class="legend-text">GROUND TRUTH</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-line line-cyan"></span>
+              <span class="legend-text">DRISHTI (AI + ESKF + MAP)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-line line-red"></span>
+              <span class="legend-text">CONVENTIONAL NAIVE INS</span>
+            </div>
+          </div>
+
+          <!-- Bottom Trajectory Integrity Bar inside Canvas -->
+          <div class="integrity-strip-overlay">
+            <div class="integrity-brand">DRISHTI INTEGRITY</div>
+            <div class="trust-blocks">
+              <span class="trust-badge trust-ok">TRUST 100%</span>
+              <span class="trust-badge trust-ok">IMU COHERENT</span>
+              <span class="trust-badge trust-ok">NHC BOUNDED</span>
+              <span class="trust-badge trust-ok">MAP LOCKED</span>
+            </div>
+            <div class="integrity-state">
+              <span class="state-label">NAV STATE:</span>
+              <span id="integrityStateText" class="state-value text-cyan">DR COASTING</span>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- Right Panel: Forensic Event Log & Live Sensor Link -->
+      <aside class="panel right-panel">
+        
+        <!-- Live Forensic Event Stream -->
+        <section class="card event-log-card">
+          <div class="card-header">
+            <h3>EVENT LOG</h3>
+            <span class="badge-count" id="eventCountBadge">12 EVENTS</span>
+          </div>
+          <div id="eventLogContainer" class="event-log-scroller">
+            <!-- Event entries dynamically populated -->
+          </div>
+        </section>
+
+        <!-- Field Unit — Smartphone Sensor Link -->
+        <section class="card field-unit-card">
+          <div class="card-header">
+            <h3>FIELD UNIT — REAL SENSOR LINK</h3>
+            <span class="status-indicator active" id="fieldUnitStatus">ACTIVE</span>
+          </div>
+          <div class="field-meta-grid">
+            <div class="meta-field">
+              <span class="meta-lbl">FIELD UNIT</span>
+              <span class="meta-val">PIXEL-7A-FIELD-01</span>
+            </div>
+            <div class="meta-field">
+              <span class="meta-lbl">LINK STATE</span>
+              <span class="meta-val text-green">SYNCHRONIZED</span>
+            </div>
+            <div class="meta-field">
+              <span class="meta-lbl">SENSOR RATE</span>
+              <span class="meta-val text-cyan">100 Hz IMU</span>
+            </div>
+            <div class="meta-field">
+              <span class="meta-lbl">LATENCY (RTT)</span>
+              <span class="meta-val">12 ms</span>
+            </div>
+            <div class="meta-field">
+              <span class="meta-lbl">PACKETS RX</span>
+              <span id="packetsRxVal" class="meta-val">12,480</span>
+            </div>
+            <div class="meta-field">
+              <span class="meta-lbl">DRIFT PERCENT</span>
+              <span class="meta-val text-green text-bold">3.39% (&lt; 10%)</span>
+            </div>
+          </div>
+          <div class="field-hint">
+            Hold on a phone on this network to stream live accelerometer and gyroscope into the filter.
+          </div>
+        </section>
+
+        <!-- Simulated IMU & Speed Model Telemetry -->
+        <section class="card kinematics-card">
+          <div class="card-header-compact">
+            <span class="card-title-sub">SPEED MODEL (SIMULATED)</span>
+            <span id="gyroZVal" class="text-mono text-cyan">GYRO Z: 0.00 rad/s</span>
+          </div>
+          <div class="kinematics-grid">
+            <div class="k-box">
+              <div class="k-lbl">AI SPEED</div>
+              <div id="kinSpeedKmh" class="k-val">55.0 km/h</div>
+            </div>
+            <div class="k-lbl-sub" id="kinSpeedMps">15.28 m/s</div>
+            <div class="k-box">
+              <div class="k-lbl">HEADING</div>
+              <div id="kinHeadingDeg" class="k-val">0.0°</div>
+            </div>
+            <div class="k-box">
+              <div class="k-lbl">ACCEL X</div>
+              <div id="kinAccelX" class="k-val">0.00 m/s²</div>
+            </div>
+          </div>
+        </section>
+
+      </aside>
+
+    </main>
+
+    <!-- Bottom Presentation & Playback Dock -->
+    <footer class="bottom-dock">
+      
+      <!-- Primary Automated Presentation Button -->
+      <button id="btnRunJudgeDemo" class="btn-judge-demo">
+        <span class="btn-icon">▶</span>
+        <span class="btn-text">RUN JUDGE DEMO</span>
+      </button>
+
+      <!-- Standard Transport Controls -->
+      <div class="transport-controls">
+        <button id="btnPlayPause" class="btn-transport" title="Play/Pause">⏸</button>
+        <button id="btnReset" class="btn-transport" title="Reset">⏮</button>
+        <button id="btnReload" class="btn-transport" title="Reload Scenario">🔄</button>
+        <div class="speed-toggle-group">
+          <button class="speed-btn active" data-speed="1">1x</button>
+          <button class="speed-btn" data-speed="2">2x</button>
+          <button class="speed-btn" data-speed="5">5x</button>
+        </div>
+      </div>
+
+      <!-- Timeline Scrubber -->
+      <div class="timeline-scrubber-group">
+        <span id="scrubCurrentTime" class="time-readout">00:00.0</span>
+        <input type="range" id="timeScrubber" min="0" max="120" step="0.1" value="0" class="custom-scrubber">
+        <span id="scrubTotalTime" class="time-readout">02:00.0</span>
+      </div>
+
+      <!-- Right Footer Badges -->
+      <div class="dock-footer-meta">
+        <span class="seed-badge">SEED: 26168</span>
+        <span class="disclaimer">DRISHTI DEMONSTRATION BUILD · SIH26168 ISRO</span>
+      </div>
+
+    </footer>
+
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

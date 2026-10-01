@@ -1,0 +1,16 @@
+{
+  "system_version": "3.2.0-Production",
+  "sampling_rate_hz": 10.0,
+  "outage_min_s": 45.0,
+  "outage_max_s": 60.0,
+  "alignment_history_s": 60.0,
+  "vibration_filter_cutoff_hz": 1.5,
+  "road_width_m": 7.0,
+  "max_map_snap_distance_m": 25.0,
+  "nhc_lateral_variance": 0.05,
+  "nhc_vertical_variance": 0.05,
+  "zupt_variance": 0.01,
+  "gyro_bias_max_rad_s": 0.03,
+  "accel_bias_max_m_s2": 0.35,
+  "methods": ["Held_Speed", "Fixed_Physics_Core", "Fixed_Physics_Plus_Road_Corridor"]
+}

@@ -1,0 +1,72 @@
+DRISHTI — Dead-Reckoning with Intelligent Sensor-fusion for High-integrity Terrestrial Inertial Navigation
+
+When GNSS disappears, navigation shouldn't.
+
+DRISHTI is our AI-ML based intelligent dead-reckoning system for seamless navigation during GNSS-denied conditions, developed for Smart India Hackathon 2026, Problem Statement SIH26168 by ISRO.
+
+In this 3-minute prototype demonstration, we show how DRISHTI is designed to allow a smartphone to continue estimating vehicle position when GNSS becomes unavailable in environments such as tunnels, underpasses, basements and dense urban areas.
+
+HOW DRISHTI WORKS
+
+• Smartphone IMU sensors — accelerometer, gyroscope and magnetometer
+• AI-based forward-speed estimation
+• Error-State Kalman Filter
+• Non-Holonomic Constraints
+• Zero-Velocity Updates
+• Offline OpenStreetMap-based map matching
+• GNSS integrity monitoring
+• Seamless GNSS recovery
+• Uncertainty and navigation integrity estimation
+
+Our core philosophy:
+
+"AI learns the motion. Physics owns the position. The road keeps it honest."
+
+PROTOTYPE DEMONSTRATION
+
+The demo shows a vehicle transitioning from normal GNSS navigation into a GNSS-denied environment.
+
+During the outage:
+
+🔴 Conventional inertial dead reckoning accumulates error and drifts away from the road.
+
+🔵 DRISHTI continues estimating vehicle motion using learned speed, physical constraints, filtering and map information.
+
+When GNSS becomes available again, DRISHTI performs a soft handover instead of abruptly restarting or snapping the position.
+
+EVALUATION
+
+Our target is less than 10 percent positioning drift during GNSS-denied operation.
+
+We plan to evaluate DRISHTI using:
+
+• Position and trajectory error
+• Drift percentage
+• Heading drift
+• GNSS outage duration
+• Cross-device performance
+• Different phone mounting positions
+• Tunnels and underpasses
+• Parking structures
+• Potholes and vibration
+• GNSS failure scenarios
+• Unseen routes and devices
+
+The system is designed for on-device operation without requiring cloud connectivity during a GNSS outage, with a future path toward deployment using higher-grade IMU hardware.
+
+PROBLEM STATEMENT
+
+SIH26168 — AI-ML based Intelligent Dead Reckoning system for seamless navigation
+
+Organisation: Indian Space Research Organisation — ISRO
+Team: True Bearing
+Project: DRISHTI
+Hackathon: Smart India Hackathon 2026
+
+OUR VISION
+
+When GNSS disappears, navigation shouldn't.
+
+This is DRISHTI.
+
+#DRISHTI #SIH2026 #SmartIndiaHackathon #ISRO #DeadReckoning #GNSS #Navigation #AI #MachineLearning #SensorFusion #InertialNavigation #Robotics #IndianInnovation

@@ -1,0 +1,21 @@
+{
+  "tripId": "demo_delhi_tunnel_001",
+  "title": "Pragati Maidan Expressway - 40s GNSS Tunnel Blackout",
+  "sampleRateHz": 10,
+  "durationSec": 120.0,
+  "sampleCount": 1200,
+  "outageStartSec": 35.0,
+  "outageEndSec": 75.0,
+  "outageDurationSec": 40.0,
+  "outageDistanceM": 609.6,
+  "endpointErrorM": 20.69,
+  "rmsErrorM": 12.59,
+  "maxErrorM": 20.69,
+  "driftPercent": 3.39,
+  "isroTargetPercent": 10.0,
+  "isroPassed": true,
+  "originLat": 28.6315,
+  "originLon": 77.2167,
+  "modelVersion": "kinonet-r2-v1",
+  "dataType": "SIMULATION"
+}
