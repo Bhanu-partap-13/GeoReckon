@@ -5,4 +5,5 @@ object Routes {
     const val NAVIGATION = "navigation"
     const val RESULTS = "results"
     const val DIAGNOSTICS = "diagnostics"
+    const val LIVE_DEMO = "live_demo"
 }

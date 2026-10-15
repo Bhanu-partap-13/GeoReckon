@@ -14,6 +14,23 @@ enum class GeoReckonConnectionState {
     ERROR
 }
 
+enum class SocketConnectionState {
+    CONNECTING,
+    CONNECTED,
+    DISCONNECTED,
+    ERROR
+}
+
+fun GeoReckonConnectionState.toSocketState(): SocketConnectionState = when (this) {
+    GeoReckonConnectionState.CONNECTING -> SocketConnectionState.CONNECTING
+    GeoReckonConnectionState.CONNECTED_IDLE,
+    GeoReckonConnectionState.CALIBRATING,
+    GeoReckonConnectionState.DEAD_RECKONING,
+    GeoReckonConnectionState.GPS_RESTORED -> SocketConnectionState.CONNECTED
+    GeoReckonConnectionState.DISCONNECTED -> SocketConnectionState.DISCONNECTED
+    GeoReckonConnectionState.ERROR -> SocketConnectionState.ERROR
+}
+
 enum class GeoReckonErrorCode(val description: String) {
     NOT_CALIBRATED("Sensor stream sent before calibration completed"),
     INVALID_SCHEMA("Packet schema is invalid or missing required fields"),
@@ -38,8 +55,8 @@ enum class GeoReckonErrorCode(val description: String) {
 }
 
 data class GeoReckonConfig(
-    val host: String = "10.0.2.2", // Default to Android emulator host loopback
-    val port: Int = 5000,
+    val host: String = "3.230.8.186", // AWS EC2 Stable Elastic IP
+    val port: Int = 80,
     val authToken: String? = null,
     val sampleRateHz: Double = 10.0,
     val connectTimeoutMs: Long = 10000L,
@@ -47,5 +64,6 @@ data class GeoReckonConfig(
     val reconnectDelayMs: Long = 1000L
 ) {
     val serverUrl: String
-        get() = "http://$host:$port"
+        get() = if (port == 80) "http://$host" else "http://$host:$port"
 }
+

@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.sleepingheads.sihpro.ui.diagnostics.DiagnosticsScreen
 import com.sleepingheads.sihpro.ui.home.HomeScreen
+import com.sleepingheads.sihpro.ui.livedemo.LiveDeviceDemoScreen
 import com.sleepingheads.sihpro.ui.results.ResultsScreen
 
 @Composable
@@ -72,6 +73,17 @@ fun AppNavGraph(
         composable(Routes.DIAGNOSTICS) {
             DiagnosticsScreen(
                 viewModel = sharedNavViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToLiveDemo = {
+                    navController.navigate(Routes.LIVE_DEMO)
+                }
+            )
+        }
+
+        composable(Routes.LIVE_DEMO) {
+            LiveDeviceDemoScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }

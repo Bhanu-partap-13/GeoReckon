@@ -221,6 +221,7 @@ def handle_reset(data: Any):
 
 
 if __name__ == "__main__":
+    host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", 5000))
-    logger.info(f"Starting GeoReckon Flask-SocketIO Server on port {port}...")
-    socketio.run(app, host="0.0.0.0", port=port, debug=False)
+    logger.info(f"Starting GeoReckon Flask-SocketIO Server on {host}:{port}...")
+    socketio.run(app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)

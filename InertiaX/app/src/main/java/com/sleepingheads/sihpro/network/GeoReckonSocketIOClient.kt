@@ -44,6 +44,14 @@ class GeoReckonSocketIOClient(
     private val _connectionState = MutableStateFlow(GeoReckonConnectionState.DISCONNECTED)
     val connectionState: StateFlow<GeoReckonConnectionState> = _connectionState.asStateFlow()
 
+    private val _socketState = MutableStateFlow(SocketConnectionState.DISCONNECTED)
+    val socketState: StateFlow<SocketConnectionState> = _socketState.asStateFlow()
+
+    private fun updateState(state: GeoReckonConnectionState) {
+        _connectionState.value = state
+        _socketState.value = state.toSocketState()
+    }
+
     private val _lastPosition = MutableStateFlow<PositionResponse?>(null)
     val lastPosition: StateFlow<PositionResponse?> = _lastPosition.asStateFlow()
 
@@ -90,7 +98,7 @@ class GeoReckonSocketIOClient(
             return
         }
 
-        _connectionState.value = GeoReckonConnectionState.CONNECTING
+        updateState(GeoReckonConnectionState.CONNECTING)
 
         try {
             val opts = IO.Options().apply {
@@ -108,18 +116,19 @@ class GeoReckonSocketIOClient(
             socket = IO.socket(uri, opts).apply {
                 on(Socket.EVENT_CONNECT) {
                     Log.i(TAG, "Socket.IO connected to ${config.serverUrl}")
-                    _connectionState.value = GeoReckonConnectionState.CONNECTED_IDLE
+                    updateState(GeoReckonConnectionState.CONNECTED_IDLE)
+                    sendPing()
                 }
 
                 on(Socket.EVENT_DISCONNECT) { args ->
                     Log.w(TAG, "Socket.IO disconnected: ${args.firstOrNull()}")
-                    _connectionState.value = GeoReckonConnectionState.DISCONNECTED
+                    updateState(GeoReckonConnectionState.DISCONNECTED)
                 }
 
                 on(Socket.EVENT_CONNECT_ERROR) { args ->
                     val err = args.firstOrNull()
                     Log.e(TAG, "Socket.IO connect error: $err")
-                    _connectionState.value = GeoReckonConnectionState.ERROR
+                    updateState(GeoReckonConnectionState.ERROR)
                     val errResp = ErrorResponse(
                         code = GeoReckonErrorCode.CONNECTION_LOST.name,
                         message = "Connection failed: $err"
@@ -133,7 +142,7 @@ class GeoReckonSocketIOClient(
                         val jsonStr = args.firstOrNull()?.toString() ?: "{}"
                         val resp = GeoReckonJson.fromJson(jsonStr, CalibrateDoneResponse::class.java)
                         _lastCalibration.value = resp
-                        _connectionState.value = GeoReckonConnectionState.CONNECTED_IDLE
+                        updateState(GeoReckonConnectionState.CONNECTED_IDLE)
                         onCalibrateDone?.invoke(resp)
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed parsing calibrate_done", e)
@@ -146,9 +155,9 @@ class GeoReckonSocketIOClient(
                         val resp = GeoReckonJson.fromJson(jsonStr, PositionResponse::class.java)
                         _lastPosition.value = resp
                         if (resp.mode.equals("DEAD_RECKONING", ignoreCase = true)) {
-                            _connectionState.value = GeoReckonConnectionState.DEAD_RECKONING
+                            updateState(GeoReckonConnectionState.DEAD_RECKONING)
                         } else if (resp.mode.equals("IDLE", ignoreCase = true)) {
-                            _connectionState.value = GeoReckonConnectionState.GPS_RESTORED
+                            updateState(GeoReckonConnectionState.GPS_RESTORED)
                         }
                         onPosition?.invoke(resp)
                     } catch (e: Exception) {
@@ -160,7 +169,7 @@ class GeoReckonSocketIOClient(
                     try {
                         val jsonStr = args.firstOrNull()?.toString() ?: "{}"
                         val resp = GeoReckonJson.fromJson(jsonStr, ResetDoneResponse::class.java)
-                        _connectionState.value = GeoReckonConnectionState.CONNECTED_IDLE
+                        updateState(GeoReckonConnectionState.CONNECTED_IDLE)
                         resetSequence(1L)
                         onResetDone?.invoke(resp)
                     } catch (e: Exception) {
@@ -173,7 +182,7 @@ class GeoReckonSocketIOClient(
                         val jsonStr = args.firstOrNull()?.toString() ?: "{}"
                         val resp = GeoReckonJson.fromJson(jsonStr, ErrorResponse::class.java)
                         _lastError.value = resp
-                        _connectionState.value = GeoReckonConnectionState.ERROR
+                        updateState(GeoReckonConnectionState.ERROR)
                         onError?.invoke(resp)
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed parsing error event", e)
@@ -196,7 +205,7 @@ class GeoReckonSocketIOClient(
             socket?.connect()
         } catch (e: Exception) {
             Log.e(TAG, "Exception during socket initialization", e)
-            _connectionState.value = GeoReckonConnectionState.ERROR
+            updateState(GeoReckonConnectionState.ERROR)
             val errResp = ErrorResponse(
                 code = GeoReckonErrorCode.INTERNAL_ERROR.name,
                 message = "Initialization error: ${e.message}"
@@ -210,7 +219,7 @@ class GeoReckonSocketIOClient(
      * Emits `calibrate` event.
      */
     fun sendCalibrate(request: CalibrateRequest) {
-        _connectionState.value = GeoReckonConnectionState.CALIBRATING
+        updateState(GeoReckonConnectionState.CALIBRATING)
         val jsonString = GeoReckonJson.toJson(request)
         socket?.emit("calibrate", JSONObject(jsonString))
     }
@@ -264,7 +273,7 @@ class GeoReckonSocketIOClient(
         } catch (e: Exception) {
             Log.e(TAG, "Error disconnecting socket", e)
         } finally {
-            _connectionState.value = GeoReckonConnectionState.DISCONNECTED
+            updateState(GeoReckonConnectionState.DISCONNECTED)
         }
     }
 }

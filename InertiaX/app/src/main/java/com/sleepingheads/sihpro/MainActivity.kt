@@ -8,12 +8,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.sleepingheads.sihpro.network.GeoReckonCloudManager
 import com.sleepingheads.sihpro.ui.navigation.AppNavGraph
 import com.sleepingheads.sihpro.ui.theme.SIHProTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        GeoReckonCloudManager.init(applicationContext)
         enableEdgeToEdge()
         setContent {
             SIHProTheme(darkTheme = true) {

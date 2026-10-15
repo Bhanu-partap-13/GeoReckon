@@ -22,6 +22,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.sleepingheads.sihpro.network.GeoReckonCloudManager
+import com.sleepingheads.sihpro.network.SocketConnectionState
+
+private data class SocketStatusStyle(
+    val text: String,
+    val color: Color,
+    val bg: Color,
+    val border: Color
+)
+
 @Composable
 fun HomeScreen(
     onStartDemo: () -> Unit,
@@ -29,6 +41,39 @@ fun HomeScreen(
     onViewDiagnostics: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val socketState by GeoReckonCloudManager.socketState.collectAsState()
+    val rttMs by GeoReckonCloudManager.lastRttMs.collectAsState()
+
+    val statusStyle = when (socketState) {
+        SocketConnectionState.CONNECTED -> SocketStatusStyle(
+            if (rttMs > 0) "CONNECTED • ${rttMs.toInt()}ms" else "CONNECTED",
+            Color(0xFF00E676),
+            Color(0x2200E676),
+            Color(0x6600E676)
+        )
+        SocketConnectionState.CONNECTING -> SocketStatusStyle(
+            "CONNECTING...",
+            Color(0xFFFFB300),
+            Color(0x22FFB300),
+            Color(0x66FFB300)
+        )
+        SocketConnectionState.ERROR -> SocketStatusStyle(
+            "CONNECTION ERROR",
+            Color(0xFFFF5252),
+            Color(0x22FF5252),
+            Color(0x66FF5252)
+        )
+        SocketConnectionState.DISCONNECTED -> SocketStatusStyle(
+            "OFFLINE",
+            Color(0xFF90A4AE),
+            Color(0x2290A4AE),
+            Color(0x6690A4AE)
+        )
+    }
+    val statusText = statusStyle.text
+    val statusColor = statusStyle.color
+    val statusBg = statusStyle.bg
+    val statusBorder = statusStyle.border
 
     Column(
         modifier = Modifier
@@ -59,7 +104,7 @@ fun HomeScreen(
                             .background(Color(0x3300E676))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
-                        Text("MVP", color = Color(0xFF00E676), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("PROD", color = Color(0xFF00E676), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 Text(
@@ -70,18 +115,79 @@ fun HomeScreen(
                 )
             }
 
-            // Offline Status Chip
+            // Real Dynamic Socket.IO Status Chip
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0x2200E5FF))
-                    .border(1.dp, Color(0x6600E5FF), RoundedCornerShape(20.dp))
+                    .background(statusBg)
+                    .border(1.dp, statusBorder, RoundedCornerShape(20.dp))
                     .padding(horizontal = 10.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                Box(modifier = Modifier.size(7.dp).background(Color(0xFF00E5FF), CircleShape))
-                Text("100% Offline", color = Color(0xFF00E5FF), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Box(modifier = Modifier.size(7.dp).background(statusColor, CircleShape))
+                Text(statusText, color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        // Live Cloud Socket.IO Connectivity Banner
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF101622)),
+            shape = RoundedCornerShape(16.dp),
+            border = CardDefaults.outlinedCardBorder().copy(
+                brush = Brush.horizontalGradient(
+                    if (socketState == SocketConnectionState.CONNECTED)
+                        listOf(Color(0x6600E676), Color(0x6600E5FF))
+                    else
+                        listOf(Color(0x22FFFFFF), Color(0x11FFFFFF))
+                )
+            )
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Box(modifier = Modifier.size(8.dp).background(statusColor, CircleShape))
+                        Text(
+                            text = if (socketState == SocketConnectionState.CONNECTED) "AWS EC2 CLOUD ENGINE" else "CLOUD ENGINE",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Text(
+                        text = "Endpoint: 3.230.8.186:80 • WebSocket",
+                        color = Color(0xFF78909C),
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+
+                if (socketState == SocketConnectionState.CONNECTED) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("LATENCY", color = Color(0xFF64748B), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (rttMs > 0) String.format("%.0f ms", rttMs) else "< 300 ms",
+                            color = Color(0xFF00E5FF),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                } else if (socketState == SocketConnectionState.DISCONNECTED || socketState == SocketConnectionState.ERROR) {
+                    FilledTonalButton(
+                        onClick = { GeoReckonCloudManager.connect() },
+                        colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFF1E2638)),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text("Reconnect", color = Color(0xFF00E5FF), fontSize = 11.sp)
+                    }
+                }
             }
         }
 
