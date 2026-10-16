@@ -109,10 +109,14 @@ class KinoNetR2(nn.Module):
         mu = out[:, 0]               # Predicted speed
         log_var = out[:, 1]           # Predicted log-variance
 
-        # Clamp log_var to prevent numerical instability
-        # WHY? If log_var → -∞, then exp(-log_var) → +∞ → loss explodes
-        # If log_var → +∞, model becomes infinitely uncertain → useless
-        log_var = torch.clamp(log_var, min=-10.0, max=10.0)
+        # Clamp log_var to physically bounded uncertainty range.
+        # WHY BOUNDS?
+        #   min=-7.0 → σ_min = exp(-7/2) ≈ 0.03 m/s (never over-confident)
+        #   max=+5.0 → σ_max = exp(5/2)  ≈ 12.2 m/s (physically plausible vehicle speed noise)
+        # PREVIOUSLY min=-10, max=+10 allowed σ up to ~148 m/s, which let the network
+        # cheat during training by driving log_var → +10 to zero out the Huber gradient,
+        # causing it to predict only the dataset mean (~10 m/s) with no real-time correlation.
+        log_var = torch.clamp(log_var, min=-7.0, max=5.0)
 
         return mu, log_var
 

@@ -43,7 +43,10 @@ class KinoNet(nn.Module):
         features = self.net(norm_x).transpose(1, 2)
         h = self.head(features)
         speed = 50.0 * torch.sigmoid(h[..., 0])
-        logvar = torch.clamp(h[..., 1], -2.0, 5.0)
+        # Clamp log_var to physically bounded uncertainty range.
+        # min=-7.0 → σ ≈ 0.03 m/s (prevents over-confidence)
+        # max=+5.0 → σ ≈ 12.2 m/s (prevents variance collapse / gradient zeroing)
+        logvar = torch.clamp(h[..., 1], min=-7.0, max=5.0)
         stop_logit = h[..., 2]
         return speed, logvar, stop_logit
 
