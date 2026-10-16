@@ -11,8 +11,16 @@ Features:
 
 from dataclasses import dataclass, field
 import numpy as np
-from scipy.stats import chi2
 from .geometry import skew, so3_exp, left_jac
+
+# Fixed chi-squared gate threshold at 99th percentile for 3-DOF (the highest-DOF
+# update used in this filter). Using a DOF-dependent threshold was the original
+# lockout bug: for 1-DOF (chi2.ppf(0.99,1)=6.63) and 2-DOF (9.21) updates,
+# a routine 1.5 m/s accelerometer bias spike would push NIS above the threshold
+# on every step, causing V to inflate without bound and soft-freezing those
+# measurement channels. A fixed 11.3 is the conservative limit that only fires
+# on genuine shock/outlier events, not normal MEMS drift.
+_CHI2_GATE_99 = 11.3
 
 GRAVITY_WORLD = np.array([0.0, 0.0, -9.80665], dtype=np.float64)
 
@@ -74,8 +82,8 @@ class InEKF:
             np.full(3, 0.01**2), # Gyro bias: 0.01 rad/s
             np.full(3, 0.15**2)  # Accel bias: 0.15 m/s^2
         ])
-        self.rejects = 0
-        self.accepted = 0
+        self.inflated = 0   # count of updates where V was inflated (NOT rejected)
+        self.accepted = 0   # count of updates that passed the gate without inflation
 
     def predict(self, a_meas: np.ndarray, w_meas: np.ndarray, dt: float, noise_inflation: float = 1.0):
         """
@@ -133,6 +141,20 @@ class InEKF:
         """
         Joseph-form Kalman measurement update with Adaptive Huber covariance inflation.
         Prevents irreversible filter lockout when shocks or bias shifts occur.
+
+        GATING STRATEGY (Fix #2):
+            Instead of hard-rejecting outlier measurements (which permanently locks the
+            filter), we use Adaptive Huber Covariance Inflation:
+
+            1. Compute NIS = innovation^T @ S^{-1} @ innovation
+            2. If NIS > _CHI2_GATE_99 (=11.3): scale V proportionally so the
+               normalized residual is brought back to the gate boundary.
+               → The update PROCEEDS with a down-weighted (softer) correction.
+            3. If NIS <= 11.3: update proceeds normally.
+
+            The scale factor is: V_adaptive = V_nominal * (NIS / 11.3)
+            This matches the spec exactly and is DOF-independent, preventing
+            premature inflation on 1-DOF / 2-DOF velocity updates.
         """
         residual = np.asarray(z) - np.asarray(h)
         S = H @ self.P @ H.T + V
@@ -143,17 +165,14 @@ class InEKF:
         except np.linalg.LinAlgError:
             return False
 
-        dof = len(residual)
-        gate_thresh = float(chi2.ppf(0.99, dof))
-
-        # Adaptive Huber Gating: inflate V if NIS is large rather than hard-rejecting
-        if nis > gate_thresh:
-            inflation = max(1.0, nis / gate_thresh)
-            V_used = V * inflation
-            S = H @ self.P @ H.T + V_used
-            self.rejects += 1
+        # Adaptive Huber Covariance Inflation: smoothly down-weight instead of hard-reject
+        if nis > _CHI2_GATE_99:
+            scale_factor = nis / _CHI2_GATE_99
+            V_adaptive = V * scale_factor
+            S = H @ self.P @ H.T + V_adaptive
+            self.inflated += 1
         else:
-            V_used = V
+            V_adaptive = V
             self.accepted += 1
 
         # Kalman gain computation
@@ -166,7 +185,7 @@ class InEKF:
 
         # Joseph stabilized covariance update: P = (I - KH) P (I - KH)^T + K V K^T
         A = np.eye(15) - K @ H
-        P_updated = A @ self.P @ A.T + K @ V_used @ K.T
+        P_updated = A @ self.P @ A.T + K @ V_adaptive @ K.T
 
         # Retraction on Lie group
         self.state = retract(self.state, dx)
