@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from georeckon.src.data_loader import load_drive
+from georeckon.src.data_loader import load_drive, split_drives_by_name
 from georeckon.src.evaluator import extract_standardized_outages, evaluate_trial
 
 
@@ -26,19 +26,29 @@ def run_benchmarks(data_dir: str, output_dir: str):
     print("=" * 75)
 
     drives = ['S1', 'S2', 'S3a', 'S3b', 'S3c', 'S4']
+
+    # FIX #5: Split drives by whole-drive boundary (not row shuffling) to
+    # prevent data leakage. Train/test sets share NO IMU windows.
+    train_drives, test_drives = split_drives_by_name(drives)
+    print(f"  Train drives : {train_drives}")
+    print(f"  Test  drives : {test_drives}  (held-out, never seen during training)")
+    print("=" * 75)
+
     all_summaries = []
 
     for d_name in drives:
+        is_test = d_name in test_drives
+        split_tag = "[TEST] " if is_test else "[TRAIN]"
         s_file = data_path / d_name / f"S-{d_name}.csv"
         v_file = data_path / d_name / f"V-{d_name}.csv"
 
         if not s_file.exists():
-            print(f"Skipping Drive {d_name} (file not found at {s_file})")
+            print(f"  Skipping Drive {d_name} (file not found at {s_file})")
             continue
 
-        print(f"\nProcessing Drive {d_name}...")
+        print(f"\n{split_tag} Processing Drive {d_name}...")
         drive = load_drive(str(s_file), str(v_file) if v_file.exists() else None)
-        print(f"Loaded {len(drive.t):,d} samples ({drive.t[-1]-drive.t[0]:.1f} s duration)")
+        print(f"  Loaded {len(drive.t):,d} samples ({drive.t[-1]-drive.t[0]:.1f} s duration) — ALL rows ingested (no GPS freshness filter)")
 
         trials = list(extract_standardized_outages(drive))
         print(f"Extracted {len(trials)} eligible non-overlapping 45-60s blackout windows")
