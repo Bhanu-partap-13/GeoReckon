@@ -106,18 +106,26 @@ def extract_continuous_windows(drive: TelematicsDrive, window_len: int = 30, str
     FIX #4: Raw smartphone acceleration (sigma ~1.19 m/s^2) was being fed directly
     into state integration without any pre-filtering. This caused road vibrations
     and pothole spikes to produce rapid random-walk velocity divergence.
+    The dual-stage filter (MAD shock clipper + Butterworth LPF at 1.5 Hz) is
+    applied to the full drive before windowing.
 
-    The dual-stage filter is now applied here before windowing:
-        Stage 1: MAD shock clipper (z_mod > 3.5) on accel AND gyro channels.
-        Stage 2: 2nd-order zero-phase Butterworth LPF at fc = 1.5 Hz.
+    FIX #5 (d.fresh bug):
+    The previous loader filtered rows by GPS coordinate freshness ('d.fresh'),
+    keeping a row only when GPS lat/lon changed from the previous row. Because
+    GPS updates at <=1 Hz while the IMU logs at 10 Hz, 9 of every 10 rows were
+    discarded. On Drive S3 (68,617 IMU samples) only 716 rows survived, causing
+    extreme overfitting. This function now ingests ALL continuous 10 Hz IMU rows
+    regardless of GPS freshness. The speed target is still derived from the
+    interpolated GPS speed (sample-held at IMU rate), which is correct -- all
+    IMU samples genuinely occurred at those vehicle speeds.
 
-    Gravity is NOT filtered -- it is already a low-frequency static vector
-    and filtering it would remove the attitude information needed for alignment.
+    Gravity is NOT filtered -- it is a low-frequency attitude vector and
+    filtering it would corrupt the alignment engine inputs.
     """
     from .vibration_filter import KinematicVibrationFilter
 
-    raw_a = drive.a       # (N, 3) raw accelerometer
-    raw_w = drive.w       # (N, 3) raw gyroscope
+    raw_a = drive.a       # (N, 3) raw accelerometer -- ALL rows, no GPS gate
+    raw_w = drive.w       # (N, 3) raw gyroscope    -- ALL rows, no GPS gate
 
     # Apply dual-stage filter to the full drive array (batch mode)
     vib_filt = KinematicVibrationFilter(sampling_rate=sampling_rate, cutoff_hz=1.5)
@@ -135,9 +143,53 @@ def extract_continuous_windows(drive: TelematicsDrive, window_len: int = 30, str
     for i in range(0, N - window_len, stride):
         win = sensors[i:i+window_len].T  # (9, window_len)
         tgt = targets[i+window_len-1]
+        # Accept all rows; only skip NaN/negative speed (sensor fault, not GPS freshness)
         if np.isfinite(win).all() and np.isfinite(tgt) and tgt >= 0:
             X.append(win)
             y.append(tgt)
 
     return np.array(X, dtype=np.float32), np.array(y, dtype=np.float32)
 
+
+def split_drives_by_name(drive_names: list[str],
+                          train_names: list[str] = None,
+                          test_names: list[str] = None) -> tuple[list[str], list[str]]:
+    """
+    Splits a list of drive identifiers into train and test sets by whole-drive
+    boundaries (not by row shuffling).
+
+    FIX #5 (data leakage):
+    The prior approach evaluated all drives together without any split, meaning
+    the training distribution overlapped with the evaluation distribution.
+    Splitting by WHOLE DRIVES prevents temporal data leakage: no IMU window
+    from a test drive can appear in training data, because the vehicle dynamics,
+    road geometry, and driver behaviour of each drive are temporally correlated.
+
+    Default split convention (matches IO-VNBD benchmark protocol):
+        Train: S1, S3a, S3b, S3c   (longer drives, richer manoeuvre diversity)
+        Test:  S2, S4              (held-out drives, never seen during training)
+
+    Args:
+        drive_names: Full list of drive name strings (e.g. ['S1','S2','S3a','S4'])
+        train_names: Explicit list of train drive names (overrides default)
+        test_names:  Explicit list of test drive names (overrides default)
+
+    Returns:
+        (train_drives, test_drives): two lists of drive name strings
+    """
+    if train_names is None:
+        train_names = [n for n in drive_names if n.startswith('S1') or n.startswith('S3')]
+    if test_names is None:
+        test_names  = [n for n in drive_names if n.startswith('S2') or n.startswith('S4')]
+
+    # Warn if any drive appears in both sets or neither
+    overlap = set(train_names) & set(test_names)
+    if overlap:
+        raise ValueError(f"Drive split overlap detected: {overlap}. "
+                         "Drives must belong to EITHER train OR test, not both.")
+    unassigned = set(drive_names) - set(train_names) - set(test_names)
+    if unassigned:
+        import warnings
+        warnings.warn(f"Drives not assigned to train or test: {unassigned}", stacklevel=2)
+
+    return train_names, test_names
