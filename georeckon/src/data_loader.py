@@ -98,7 +98,7 @@ def load_drive(csv_path: str, v_csv_path: str = None) -> TelematicsDrive:
 
 
 def extract_continuous_windows(drive: TelematicsDrive, window_len: int = 30, stride: int = 5,
-                               sampling_rate: float = 10.0):
+                               sampling_rate: float = 10.0, calibrator=None):
     """
     Constructs rolling causal windows of 9-axis IMU features for KinoNet.
     Window shape: (N_windows, 9, window_len)
@@ -133,6 +133,12 @@ def extract_continuous_windows(drive: TelematicsDrive, window_len: int = 30, str
         clean_a, clean_w, _ = vib_filt.filter_batch(raw_a, raw_w)
     else:
         clean_a, clean_w = raw_a.copy(), raw_w.copy()
+
+    # AirIMU neural calibration layer (optional, non-breaking).
+    # Applies learned residual corrections on top of the classical DSP filter.
+    # Only active when a trained IMUCalibrator is passed; otherwise a no-op.
+    if calibrator is not None:
+        clean_a, clean_w = calibrator.calibrate(clean_a, clean_w)
 
     # Use filtered accel and gyro; keep raw gravity (low-frequency attitude vector)
     sensors = np.column_stack([clean_a, clean_w, drive.gravity])  # (N, 9)
